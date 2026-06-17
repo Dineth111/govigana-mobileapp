@@ -47,7 +47,7 @@ try {
         console.log("Postgres Code:", error.code);
         console.log("Message:", error.message);
         
-        if (error.code === '42P01') {
+        if (error.code === '42P01' || error.code === 'PGRST205') {
           console.log("\n✅ CONNECTION SUCCESSFUL: The API key and network connection are correct!");
           console.log("Note: The 'todos' table does not exist in this database yet (which is expected since we haven't run the migrations).");
         } else if (error.status === 401 || error.status === 403) {
