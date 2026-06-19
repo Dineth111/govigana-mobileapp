@@ -11,6 +11,10 @@ from dotenv import load_dotenv
 # Load environment variables (for local development)
 load_dotenv()
 
+# Configure stdout stream to support Sinhala characters in Windows console
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+
 # Setup config
 HARTI_METHOD = "pdf"  # "pdf" | "api" | "browser"
 USER_AGENT = "GoviGana-Bot/1.0 (contact: dineth@example.com)"
