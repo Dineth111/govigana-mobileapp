@@ -1,180 +1,315 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React from 'react';
+import { 
+  ScrollView, 
+  StyleSheet, 
+  Text, 
+  View, 
+  Linking, 
+  Platform,
+  SafeAreaView,
+  useColorScheme,
+  Pressable
+} from 'react-native';
+import { Card, Button, List, IconButton, Appbar } from 'react-native-paper';
+import { Colors } from '@/constants/theme';
+import { router } from 'expo-router';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+export default function ServicesScreen() {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
+  const handleCall = (number: string) => {
+    Linking.openURL(`tel:${number}`).catch(err => 
+      console.error("Failed to make a call:", err)
+    );
   };
-  const theme = useTheme();
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
+  const handleOpenUrl = (url: string) => {
+    Linking.openURL(url).catch(err => 
+      console.error("Failed to open web link:", err)
+    );
+  };
+
+  const cardStyle = [styles.card, { backgroundColor: scheme === 'dark' ? '#212225' : '#ffffff' }];
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
-
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header */}
+      <Appbar.Header style={styles.appbar}>
+        <Appbar.Content 
+          title={
+            <Pressable onPress={() => router.replace('/')}>
+              <Text style={styles.appbarTitle}>Agricultural Resources 🚜</Text>
             </Pressable>
-          </ExternalLink>
-        </ThemedView>
+          } 
+        />
+      </Appbar.Header>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Mobitel 6666 Service Card */}
+        <Card style={cardStyle}>
+          <Card.Content>
+            <View style={styles.row}>
+              <Text style={styles.iconBig}>📞</Text>
+              <View style={styles.textContainer}>
+                <Text style={styles.cardTitle}>Mobitel 6666 Agri Service</Text>
+                <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+                  Dial the official shortcode **6666** from any Mobitel connection to check daily wholesale prices for commodities and markets across Sri Lanka in Sinhala or Tamil.
+                </Text>
+              </View>
+            </View>
+          </Card.Content>
+          <Card.Actions>
+            <Button 
+              icon="phone-forward" 
+              mode="contained" 
+              buttonColor="#2E7D32" 
+              textColor="#ffffff"
+              onPress={() => handleCall('6666')}
+            >
+              Call Hotline (6666)
+            </Button>
+          </Card.Actions>
+        </Card>
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
+        {/* Official Helpdesks Card */}
+        <Card style={cardStyle}>
+          <Card.Content>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Official Departments</Text>
+            <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+              Reach out directly to government institutes for agrarian research, datasets, or statistics queries.
+            </Text>
+            
+            <DividerLine />
+
+            {/* HARTI Helpdesk */}
+            <View style={styles.subItem}>
+              <View style={styles.subItemInfo}>
+                <Text style={[styles.subItemTitle, { color: colors.text }]}>HARTI Institute</Text>
+                <Text style={[styles.subItemDesc, { color: colors.textSecondary }]}>Hector Kobbekaduwa Agrarian Research and Training Institute</Text>
+              </View>
+              <IconButton 
+                icon="phone" 
+                iconColor="#2E7D32" 
+                size={24} 
+                onPress={() => handleCall('+94112696981')} 
               />
-            </ThemedView>
-          </Collapsible>
+            </View>
 
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+            <DividerLine />
 
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+            {/* DCS Helpdesk */}
+            <View style={styles.subItem}>
+              <View style={styles.subItemInfo}>
+                <Text style={[styles.subItemTitle, { color: colors.text }]}>DCS Department</Text>
+                <Text style={[styles.subItemDesc, { color: colors.textSecondary }]}>Department of Census and Statistics (Colombo Office)</Text>
+              </View>
+              <IconButton 
+                icon="phone" 
+                iconColor="#2E7D32" 
+                size={24} 
+                onPress={() => handleCall('+94112147000')} 
+              />
+            </View>
+          </Card.Content>
+        </Card>
 
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+        {/* Quick Links Card */}
+        <Card style={cardStyle}>
+          <Card.Content>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Useful Portals & Websites</Text>
+            <Text style={[styles.cardDesc, { color: colors.textSecondary }]}>
+              Visit official sites to read detailed bulletins, seasonal weather analysis, or export reports.
+            </Text>
+            
+            <View style={styles.buttonGrid}>
+              <Button 
+                mode="outlined" 
+                style={styles.gridButton} 
+                textColor="#2E7D32"
+                onPress={() => handleOpenUrl('https://www.harti.gov.lk')}
+              >
+                HARTI Website
+              </Button>
+              <Button 
+                mode="outlined" 
+                style={styles.gridButton} 
+                textColor="#2E7D32"
+                onPress={() => handleOpenUrl('https://www.statistics.gov.lk')}
+              >
+                DCS Portal
+              </Button>
+            </View>
+            <Button 
+              mode="outlined" 
+              style={styles.fullWidthButton} 
+              textColor="#2E7D32"
+              onPress={() => handleOpenUrl('https://www.doa.gov.lk')}
+            >
+              Department of Agriculture (DOA)
+            </Button>
+          </Card.Content>
+        </Card>
+
+        {/* Agricultural Best Practices */}
+        <Card style={cardStyle}>
+          <Card.Content>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Farmer Tips & Best Practices</Text>
+            
+            <List.Accordion
+              title="Post-Harvest Handling"
+              left={props => <List.Icon {...props} icon="leaf" color="#2E7D32" />}
+              titleStyle={[styles.accordionTitle, { color: colors.text }]}
+              style={{ backgroundColor: scheme === 'dark' ? '#212225' : '#ffffff' }}
+              theme={{ colors: { primary: '#2E7D32' } }}
+            >
+              <Text style={[styles.accordionContent, { color: colors.textSecondary }]}>
+                Keep crops under shade immediately after harvesting. Proper packaging (using plastic crates instead of gunny bags) can reduce transport damage by up to 25% for vegetables like tomatoes and beans.
+              </Text>
+            </List.Accordion>
+
+            <List.Accordion
+              title="Market Pricing Strategy"
+              left={props => <List.Icon {...props} icon="trending-up" color="#2E7D32" />}
+              titleStyle={[styles.accordionTitle, { color: colors.text }]}
+              style={{ backgroundColor: scheme === 'dark' ? '#212225' : '#ffffff' }}
+              theme={{ colors: { primary: '#2E7D32' } }}
+            >
+              <Text style={[styles.accordionContent, { color: colors.textSecondary }]}>
+                Compare prices between Colombo and Dambulla economic centers using GoviGana before loading transport. Wholesale prices fluctuate daily depending on overnight arrivals.
+              </Text>
+            </List.Accordion>
+
+            <List.Accordion
+              title="Organic Composting"
+              left={props => <List.Icon {...props} icon="sprout" color="#2E7D32" />}
+              titleStyle={[styles.accordionTitle, { color: colors.text }]}
+              style={{ backgroundColor: scheme === 'dark' ? '#212225' : '#ffffff' }}
+              theme={{ colors: { primary: '#2E7D32' } }}
+            >
+              <Text style={[styles.accordionContent, { color: colors.textSecondary }]}>
+                Mix green leaf wastes (nitrogen) with brown dry straws (carbon) in a 1:3 ratio. Keep the compost moist and turn it weekly to enhance decomposition and soil fertility.
+              </Text>
+            </List.Accordion>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
+// Simple Divider Line Component
+const DividerLine = () => {
+  const scheme = useColorScheme();
+  return (
+    <View style={[styles.divider, { backgroundColor: scheme === 'dark' ? '#2E3135' : '#eeeeee' }]} />
+  );
+};
+
 const styles = StyleSheet.create({
-  scrollView: {
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    paddingTop: Platform.OS === 'android' ? 24 : 0,
+  },
+  appbar: {
+    backgroundColor: '#2E7D32',
+  },
+  appbarTitle: {
+    color: '#ffffff',
+    fontWeight: '800',
+    fontSize: 20,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: Platform.OS === 'web' ? 100 : 40,
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginBottom: 16,
+    elevation: 1,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  iconBig: {
+    fontSize: 36,
+    marginRight: 16,
+    marginTop: 4,
+  },
+  textContainer: {
     flex: 1,
   },
-  contentContainer: {
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#2E7D32',
+    marginBottom: 6,
+  },
+  cardDesc: {
+    fontSize: 14,
+    color: '#616161',
+    lineHeight: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#212121',
+    marginBottom: 6,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#eeeeee',
+    marginVertical: 12,
+  },
+  subItem: {
     flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  container: {
-    maxWidth: MaxContentWidth,
-    flexGrow: 1,
-  },
-  titleContainer: {
-    gap: Spacing.three,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
   },
-  centerText: {
-    textAlign: 'center',
+  subItemInfo: {
+    flex: 1,
+    paddingRight: 10,
   },
-  pressed: {
-    opacity: 0.7,
+  subItemTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333333',
   },
-  linkButton: {
+  subItemDesc: {
+    fontSize: 13,
+    color: '#757575',
+    marginTop: 2,
+  },
+  buttonGrid: {
     flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    gap: 12,
   },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+  gridButton: {
+    flex: 1,
+    borderColor: '#2E7D32',
+    borderWidth: 1.5,
   },
-  collapsibleContent: {
-    alignItems: 'center',
+  fullWidthButton: {
+    marginTop: 12,
+    borderColor: '#2E7D32',
+    borderWidth: 1.5,
   },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
+  accordionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#212121',
   },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+  accordionContent: {
+    fontSize: 14,
+    color: '#616161',
+    paddingLeft: 56,
+    paddingRight: 16,
+    paddingBottom: 16,
+    lineHeight: 20,
   },
 });

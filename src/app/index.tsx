@@ -7,21 +7,27 @@ import {
   ActivityIndicator, 
   RefreshControl, 
   SafeAreaView, 
-  Platform 
+  Platform,
+  Pressable,
+  ScrollView,
+  useColorScheme
 } from 'react-native';
 import { 
   Appbar, 
   Searchbar, 
   SegmentedButtons, 
   Card, 
-  Menu, 
   Button, 
   Divider, 
-  Banner 
+  Banner,
+  Chip,
+  List
 } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../utils/supabase';
 import DetailModal from '../components/DetailModal';
+import { Colors } from '@/constants/theme';
+import { router } from 'expo-router';
 
 const CACHE_KEY = 'govigana_prices_cache';
 
@@ -75,6 +81,41 @@ const EMOJI_MAP: { [key: string]: string } = {
   "දොඩම්": "🍊"
 };
 
+const TRANSLATION_MAP: { [key: string]: string[] } = {
+  "beans": ["බෝංචි", "මා කරල්"],
+  "carrot": ["කැරට්"],
+  "leeks": ["ලීක්ස්"],
+  "beet": ["බීට්", "බීට් (නුවරඑළිය)"],
+  "knolkhol": ["නෝකෝල්"],
+  "radish": ["රාබු"],
+  "cabbage": ["ගෝවා", "ගෝවා (නුවරඑළිය)", "ගෝවා (මහනුවර)"],
+  "tomato": ["තක්කාලි"],
+  "okra": ["බණ්ඩක්කා", "ladies finger"],
+  "brinjal": ["වම්බටු", "වම්බටු (Eggplant)", "eggplant"],
+  "capsicum": ["මාළු මිරිස්"],
+  "pumpkin": ["වට්ටක්කා"],
+  "cucumber": ["පිපිඤ්ඤා"],
+  "bitter gourd": ["කරවිල"],
+  "snake gourd": ["පතෝල"],
+  "luffa": ["වැටකොළු", "ridge gourd"],
+  "drumstick": ["මුරුංගා"],
+  "ash plantain": ["අළු කෙසෙල්"],
+  "green chilli": ["අමු මිරිස්"],
+  "lime": ["දෙහි"],
+  "sweet potato": ["බතල"],
+  "manioc": ["මඤ්ඤොක්කා", "cassava"],
+  "potato": ["අල (රට)", "අල (වැලිමඩ)", "අල (නුවරඑළිය)", "අල"],
+  "big onion": ["ලොකු ලූණු (රට)", "ලොකු ලූණු (දේශීය)", "ලූණු"],
+  "banana": ["ඇඹුල් කෙසෙල්", "කෝලිකුට්ටු කෙසෙල්", "සීනි කෙසෙල්", "ආනමාලු කෙසෙල්", "කෙසෙල්"],
+  "papaya": ["පැපොල්"],
+  "passion fruit": ["පැෂන් පෘට්"],
+  "pineapple": ["අන්නාසි (ලොකු)", "අන්නාසි (මැද)", "අන්නාසි (පොඩි)", "අන්නාසි"],
+  "mango": ["අඹ (බෙට්ටි)", "අඹ (කර්තකොලොම්බන්)", "අඹ"],
+  "wood apple": ["දිවුල්"],
+  "avocado": ["අලිගැටපේර"],
+  "orange": ["දොඩම්"]
+};
+
 function getCropEmoji(cropName: string): string {
   // Try exact lookup
   if (EMOJI_MAP[cropName]) return EMOJI_MAP[cropName];
@@ -101,6 +142,9 @@ interface PriceItem {
 }
 
 export default function HomeScreen() {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+
   // State
   const [market, setMarket] = useState<string>('Colombo');
   const [category, setCategory] = useState<string>('all'); // 'all', 'එළවළු', 'පලතුරු'
@@ -114,6 +158,7 @@ export default function HomeScreen() {
   
   // Menu visibility
   const [menuVisible, setMenuVisible] = useState<boolean>(false);
+  const [sortBy, setSortBy] = useState<'alpha' | 'price_asc' | 'price_desc' | 'change_desc'>('alpha');
   
   // Detail Modal state
   const [selectedCrop, setSelectedCrop] = useState<PriceItem | null>(null);
@@ -127,29 +172,46 @@ export default function HomeScreen() {
     fetchPrices(market);
   }, [market]);
 
+  // Helper to determine if pricing date is older than 1 calendar day compared to today
+  const checkDataStaleness = (dataDateStr: string | undefined) => {
+    if (!dataDateStr) return false;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const dataDate = new Date(dataDateStr);
+      dataDate.setHours(0, 0, 0, 0);
+      
+      const diffTime = today.getTime() - dataDate.getTime();
+      const diffDays = diffTime / (1000 * 60 * 60 * 24);
+      
+      // If data is older than 1 calendar day, flag it as stale
+      return diffDays > 1;
+    } catch (e) {
+      console.error('Error checking staleness:', e);
+      return false;
+    }
+  };
+
   // Load cached offline prices from AsyncStorage
   const loadCachedData = async () => {
     try {
       const cached = await AsyncStorage.getItem(`${CACHE_KEY}_${market}`);
       if (cached) {
         const parsed = JSON.parse(cached);
-        setPrices(parsed.data || []);
+        const parsedData = parsed.data || [];
+        setPrices(parsedData);
         if (parsed.timestamp) {
           const cacheDate = new Date(parsed.timestamp);
           setLastUpdatedText(cacheDate.toLocaleDateString() + ' ' + cacheDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-          checkStaleness(parsed.timestamp);
+        }
+        if (parsedData.length > 0) {
+          setIsStaleData(checkDataStaleness(parsedData[0].date));
         }
       }
     } catch (e) {
       console.error('Failed to load cache:', e);
     }
-  };
-
-  // Determine if retrieved data is older than 24 hours
-  const checkStaleness = (timestamp: number) => {
-    const oneDayInMs = 24 * 60 * 60 * 1000;
-    const diff = Date.now() - timestamp;
-    setIsStaleData(diff > oneDayInMs);
   };
 
   // Fetch prices for selected market
@@ -201,7 +263,7 @@ export default function HomeScreen() {
         
         const now = new Date();
         setLastUpdatedText(now.toLocaleDateString() + ' ' + now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-        setIsStaleData(false);
+        setIsStaleData(checkDataStaleness(latestDate));
       }
     } catch (error: any) {
       console.error('Fetch prices error:', error.message);
@@ -223,10 +285,39 @@ export default function HomeScreen() {
     // 1. Category check
     const matchesCategory = category === 'all' || item.category === category;
     
-    // 2. Search check
-    const matchesSearch = item.crop.toLowerCase().includes(searchQuery.toLowerCase());
+    // 2. Search check (Sinhala name or English translation match)
+    const normalizedQuery = searchQuery.toLowerCase().trim();
+    if (!normalizedQuery) return matchesCategory;
+
+    const matchesSinhala = item.crop.toLowerCase().includes(normalizedQuery);
     
-    return matchesCategory && matchesSearch;
+    // Check English translations
+    let matchesEnglish = false;
+    for (const [englishWord, sinhalaList] of Object.entries(TRANSLATION_MAP)) {
+      if (englishWord.includes(normalizedQuery)) {
+        if (sinhalaList.some(sinhalaName => item.crop.includes(sinhalaName) || sinhalaName.includes(item.crop))) {
+          matchesEnglish = true;
+          break;
+        }
+      }
+    }
+
+    return matchesCategory && (matchesSinhala || matchesEnglish);
+  });
+
+  const sortedPrices = [...filteredPrices].sort((a, b) => {
+    if (sortBy === 'alpha') {
+      return a.crop.localeCompare(b.crop);
+    } else if (sortBy === 'price_asc') {
+      return a.price - b.price;
+    } else if (sortBy === 'price_desc') {
+      return b.price - a.price;
+    } else if (sortBy === 'change_desc') {
+      const changeA = a.change || 0;
+      const changeB = b.change || 0;
+      return changeB - changeA;
+    }
+    return 0;
   });
 
   const selectCrop = (crop: PriceItem) => {
@@ -235,37 +326,29 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Appbar Header */}
       <Appbar.Header style={styles.appbar}>
-        <Appbar.Content title="GoviGana 🌾" titleStyle={styles.appbarTitle} />
+        <Appbar.Content 
+          title={
+            <Pressable onPress={() => router.replace('/')}>
+              <Text style={styles.appbarTitle}>GoviGana 🌾</Text>
+            </Pressable>
+          } 
+        />
         
-        {/* Market Selector Dropdown */}
-        <Menu
-          visible={menuVisible}
-          onDismiss={() => setMenuVisible(false)}
-          anchor={
-            <Button 
-              mode="elevated" 
-              onPress={() => setMenuVisible(true)}
-              textColor="#ffffff"
-              buttonColor="#1b5e20"
-              style={styles.marketButton}
-              labelStyle={styles.marketButtonLabel}
-              icon="chevron-down"
-            >
-              {market}
-            </Button>
-          }
+        {/* Market Selector Dropdown Button */}
+        <Button 
+          mode="elevated" 
+          onPress={() => setMenuVisible(!menuVisible)}
+          textColor="#ffffff"
+          buttonColor="#1b5e20"
+          style={styles.marketButton}
+          labelStyle={styles.marketButtonLabel}
+          icon="chevron-down"
         >
-          <Menu.Item onPress={() => { setMarket('Colombo'); setMenuVisible(false); }} title="Colombo" />
-          <Divider />
-          <Menu.Item onPress={() => { setMarket('Dambulla'); setMenuVisible(false); }} title="Dambulla" />
-          <Divider />
-          <Menu.Item onPress={() => { setMarket('Narahenpita'); setMenuVisible(false); }} title="Narahenpita" />
-          <Divider />
-          <Menu.Item onPress={() => { setMarket('Mannar'); setMenuVisible(false); }} title="Mannar" />
-        </Menu>
+          {market}
+        </Button>
       </Appbar.Header>
 
       {/* Offline Mode Banner */}
@@ -281,10 +364,16 @@ export default function HomeScreen() {
       {/* Last Updated Indicator */}
       <View style={[
         styles.updatedIndicator, 
-        isStaleData ? styles.staleIndicator : styles.freshIndicator
+        isStaleData 
+          ? [styles.staleIndicator, scheme === 'dark' && { backgroundColor: '#3e2723' }] 
+          : [styles.freshIndicator, scheme === 'dark' && { backgroundColor: '#1b5e20' }]
       ]}>
-        <Text style={[styles.updatedText, isStaleData && styles.staleText]}>
-          📅 Data Date: {prices[0]?.date || 'N/A'} {isStaleData ? '(Older than 1 day - Fallback Active)' : ''}
+        <Text style={[
+          styles.updatedText, 
+          scheme === 'dark' && { color: '#ffffff' },
+          isStaleData && [styles.staleText, scheme === 'dark' && { color: '#ffb74d' }]
+        ]}>
+          📅 Data Date: {prices[0]?.date || 'N/A'} {isStaleData ? '⚠️ (Stale - No newer government reports published yet)' : '✓ (Latest)'}
         </Text>
       </View>
 
@@ -293,17 +382,115 @@ export default function HomeScreen() {
         placeholder="සොයන්න / Search Crop..."
         onChangeText={setSearchQuery}
         value={searchQuery}
-        style={styles.searchBar}
-        inputStyle={styles.searchInput}
-        placeholderTextColor="#9e9e9e"
+        style={[
+          styles.searchBar, 
+          { backgroundColor: scheme === 'dark' ? '#212225' : '#ffffff' }
+        ]}
+        inputStyle={[
+          styles.searchInput,
+          { color: colors.text }
+        ]}
+        iconColor="#2E7D32"
+        placeholderTextColor={scheme === 'dark' ? '#B0B4BA' : '#9e9e9e'}
       />
+
+      {/* Sort Options Horizontal Chips */}
+      <View style={styles.sortChipsWrapper}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.sortChipsContainer}
+        >
+          <Chip 
+            selected={sortBy === 'alpha'} 
+            onPress={() => setSortBy('alpha')}
+            style={[
+              styles.sortChip, 
+              { backgroundColor: scheme === 'dark' ? '#212225' : '#f0f0f3', borderColor: scheme === 'dark' ? '#333' : '#e0e0e0' },
+              sortBy === 'alpha' && styles.selectedSortChip
+            ]}
+            textStyle={[
+              styles.sortChipText, 
+              { color: scheme === 'dark' ? '#B0B4BA' : '#60646c' },
+              sortBy === 'alpha' && styles.selectedSortChipText
+            ]}
+            showSelectedOverlay={Platform.OS !== 'web'}
+            showSelectedCheck={false}
+          >
+            Name
+          </Chip>
+          <Chip 
+            selected={sortBy === 'price_asc'} 
+            onPress={() => setSortBy('price_asc')}
+            style={[
+              styles.sortChip, 
+              { backgroundColor: scheme === 'dark' ? '#212225' : '#f0f0f3', borderColor: scheme === 'dark' ? '#333' : '#e0e0e0' },
+              sortBy === 'price_asc' && styles.selectedSortChip
+            ]}
+            textStyle={[
+              styles.sortChipText, 
+              { color: scheme === 'dark' ? '#B0B4BA' : '#60646c' },
+              sortBy === 'price_asc' && styles.selectedSortChipText
+            ]}
+            showSelectedOverlay={Platform.OS !== 'web'}
+            showSelectedCheck={false}
+          >
+            Price: Low-High
+          </Chip>
+          <Chip 
+            selected={sortBy === 'price_desc'} 
+            onPress={() => setSortBy('price_desc')}
+            style={[
+              styles.sortChip, 
+              { backgroundColor: scheme === 'dark' ? '#212225' : '#f0f0f3', borderColor: scheme === 'dark' ? '#333' : '#e0e0e0' },
+              sortBy === 'price_desc' && styles.selectedSortChip
+            ]}
+            textStyle={[
+              styles.sortChipText, 
+              { color: scheme === 'dark' ? '#B0B4BA' : '#60646c' },
+              sortBy === 'price_desc' && styles.selectedSortChipText
+            ]}
+            showSelectedOverlay={Platform.OS !== 'web'}
+            showSelectedCheck={false}
+          >
+            Price: High-Low
+          </Chip>
+          <Chip 
+            selected={sortBy === 'change_desc'} 
+            onPress={() => setSortBy('change_desc')}
+            style={[
+              styles.sortChip, 
+              { backgroundColor: scheme === 'dark' ? '#212225' : '#f0f0f3', borderColor: scheme === 'dark' ? '#333' : '#e0e0e0' },
+              sortBy === 'change_desc' && styles.selectedSortChip
+            ]}
+            textStyle={[
+              styles.sortChipText, 
+              { color: scheme === 'dark' ? '#B0B4BA' : '#60646c' },
+              sortBy === 'change_desc' && styles.selectedSortChipText
+            ]}
+            showSelectedOverlay={Platform.OS !== 'web'}
+            showSelectedCheck={false}
+          >
+            High Increase First
+          </Chip>
+        </ScrollView>
+      </View>
 
       {/* Category Tabs */}
       <SegmentedButtons
         value={category}
         onValueChange={setCategory}
         style={styles.segmentedButtons}
-        theme={{ colors: { primary: '#2E7D32' } }}
+        theme={{ 
+          colors: { 
+            secondaryContainer: scheme === 'dark' ? '#2E7D32' : '#E8F5E9', 
+            onSecondaryContainer: scheme === 'dark' ? '#ffffff' : '#2E7D32',
+            outline: '#2E7D32',
+            primary: '#2E7D32',
+            onSurface: scheme === 'dark' ? '#ffffff' : '#212121',
+            onSurfaceVariant: scheme === 'dark' ? '#B0B4BA' : '#555555'
+          } 
+        }}
         buttons={[
           { value: 'all', label: 'සියල්ල (All)' },
           { value: 'එළවළු', label: 'එළවළු (Veg)' },
@@ -315,11 +502,11 @@ export default function HomeScreen() {
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#2E7D32" />
-          <Text style={styles.loadingText}>Fetching daily prices...</Text>
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Fetching daily prices...</Text>
         </View>
       ) : (
         <FlatList
-          data={filteredPrices}
+          data={sortedPrices}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           renderItem={({ item }) => {
@@ -337,15 +524,18 @@ export default function HomeScreen() {
             }
 
             return (
-              <Card style={styles.card} onPress={() => selectCrop(item)}>
+              <Card 
+                style={[styles.card, { backgroundColor: scheme === 'dark' ? '#212225' : '#ffffff' }]} 
+                onPress={() => selectCrop(item)}
+              >
                 <Card.Content style={styles.cardContent}>
                   
                   {/* Left Column: Emoji + Name */}
                   <View style={styles.leftCol}>
                     <Text style={styles.emoji}>{getCropEmoji(item.crop)}</Text>
                     <View style={styles.nameContainer}>
-                      <Text style={styles.cropName}>{item.crop}</Text>
-                      <Text style={styles.sourceLabel}>Source: {item.source}</Text>
+                      <Text style={[styles.cropName, { color: colors.text }]}>{item.crop}</Text>
+                      <Text style={[styles.sourceLabel, { color: colors.textSecondary }]}>Source: {item.source}</Text>
                     </View>
                   </View>
 
@@ -354,7 +544,7 @@ export default function HomeScreen() {
                     <Text style={styles.priceText}>
                       Rs. {item.price}
                     </Text>
-                    <Text style={styles.unitLabel}>per {item.unit}</Text>
+                    <Text style={[styles.unitLabel, { color: colors.textSecondary }]}>per {item.unit}</Text>
                     
                     {item.change !== null && (
                       <View style={[styles.changeBadge, { backgroundColor: changeColor + '15' }]}>
@@ -371,8 +561,8 @@ export default function HomeScreen() {
           }}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>No price data available.</Text>
-              <Text style={styles.emptySub}>Try shifting filters or pulling to refresh.</Text>
+              <Text style={[styles.emptyText, { color: colors.text }]}>No price data available.</Text>
+              <Text style={[styles.emptySub, { color: colors.textSecondary }]}>Try shifting filters or pulling to refresh.</Text>
             </View>
           }
           refreshControl={
@@ -399,6 +589,28 @@ export default function HomeScreen() {
           source={selectedCrop.source}
           date={selectedCrop.date}
         />
+      )}
+
+      {/* Custom Dropdown Overlay (Fixes Web Portal anchor issue and DOM stacking context) */}
+      {menuVisible && (
+        <View style={styles.dropdownOverlay}>
+          <Pressable style={styles.dropdownBackdrop} onPress={() => setMenuVisible(false)} />
+          <Card style={[styles.dropdownCard, { backgroundColor: colors.backgroundElement }]}>
+            <List.Item 
+              title="Colombo" 
+              onPress={() => { setMarket('Colombo'); setMenuVisible(false); }} 
+              style={market === 'Colombo' ? [styles.dropdownSelected, { backgroundColor: scheme === 'dark' ? '#2E7D32' : '#E8F5E9' }] : null}
+              titleStyle={[styles.dropdownText, { color: colors.text }]}
+            />
+            <Divider style={[styles.dropdownDivider, { backgroundColor: scheme === 'dark' ? '#2E3135' : '#f1f1f1' }]} />
+            <List.Item 
+              title="Dambulla" 
+              onPress={() => { setMarket('Dambulla'); setMenuVisible(false); }} 
+              style={market === 'Dambulla' ? [styles.dropdownSelected, { backgroundColor: scheme === 'dark' ? '#2E7D32' : '#E8F5E9' }] : null}
+              titleStyle={[styles.dropdownText, { color: colors.text }]}
+            />
+          </Card>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -479,7 +691,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === 'web' ? 100 : 24,
   },
   card: {
     backgroundColor: '#ffffff',
@@ -555,5 +767,73 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9e9e9e',
     marginTop: 4,
+  },
+  dropdownOverlay: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+  },
+  dropdownBackdrop: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'transparent',
+  },
+  dropdownCard: {
+    position: 'absolute',
+    top: Platform.select({
+      android: 80,
+      ios: 56,
+      default: 56,
+    }),
+    right: 12,
+    width: 180,
+    borderRadius: 12,
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    zIndex: 1001,
+    overflow: 'hidden',
+  },
+  dropdownText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  dropdownSelected: {
+  },
+  dropdownDivider: {
+  },
+  sortChipsWrapper: {
+    marginBottom: 12,
+  },
+  sortChipsContainer: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  sortChip: {
+    backgroundColor: '#f0f0f3',
+    borderColor: '#e0e0e0',
+    borderWidth: 1,
+    borderRadius: 20,
+    height: 36,
+  },
+  selectedSortChip: {
+    backgroundColor: '#2E7D32',
+    borderColor: '#2E7D32',
+  },
+  sortChipText: {
+    color: '#60646c',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  selectedSortChipText: {
+    color: '#ffffff',
   },
 });

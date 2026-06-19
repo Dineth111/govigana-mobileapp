@@ -7,11 +7,13 @@ import {
   TouchableOpacity, 
   ActivityIndicator, 
   Dimensions, 
-  Share 
+  Share,
+  useColorScheme
 } from 'react-native';
 import { Card, Button, IconButton, MD3Colors } from 'react-native-paper';
 import { LineChart } from 'react-native-chart-kit';
 import { supabase } from '../utils/supabase';
+import { Colors } from '../constants/theme';
 
 interface DetailModalProps {
   visible: boolean;
@@ -123,12 +125,15 @@ export default function DetailModal({
 
   const chartPrices = history.map(item => item.price);
 
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+
   const chartData = {
     labels: chartLabels,
     datasets: [
       {
         data: chartPrices,
-        color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`, // Green
+        color: (opacity = 1) => scheme === 'dark' ? `rgba(129, 199, 132, ${opacity})` : `rgba(46, 125, 50, ${opacity})`,
         strokeWidth: 3
       }
     ]
@@ -154,29 +159,29 @@ export default function DetailModal({
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: scheme === 'dark' ? '#212225' : '#ffffff' }]}>
           
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.cropTitle}>{cropName}</Text>
-              <Text style={styles.marketSub}>{market} Wholesale Market</Text>
+              <Text style={[styles.cropTitle, { color: scheme === 'dark' ? '#81c784' : '#1b5e20' }]}>{cropName}</Text>
+              <Text style={[styles.marketSub, { color: colors.textSecondary }]}>{market} Wholesale Market</Text>
             </View>
             <IconButton 
               icon="close" 
               size={28} 
-              iconColor="#2E7D32" 
+              iconColor={scheme === 'dark' ? '#81c784' : '#2E7D32'} 
               onPress={onClose} 
             />
           </View>
 
           {/* Pricing Info Card */}
-          <Card style={styles.priceCard}>
+          <Card style={[styles.priceCard, { backgroundColor: scheme === 'dark' ? '#1b5e2030' : '#f1f8e9' }]}>
             <Card.Content style={styles.priceCardContent}>
               <View>
-                <Text style={styles.priceLabel}>Current Price</Text>
-                <Text style={styles.priceValue}>
-                  LKR {currentPrice} <Text style={styles.unitText}>/ {unit}</Text>
+                <Text style={[styles.priceLabel, { color: scheme === 'dark' ? '#81c784' : '#558b2f' }]}>Current Price</Text>
+                <Text style={[styles.priceValue, { color: scheme === 'dark' ? '#ffffff' : '#2e7d32' }]}>
+                  LKR {currentPrice} <Text style={[styles.unitText, { color: scheme === 'dark' ? '#81c784' : '#558b2f' }]}>/ {unit}</Text>
                 </Text>
               </View>
               {change !== null && (
@@ -191,19 +196,19 @@ export default function DetailModal({
 
           {/* Chart Section */}
           <View style={styles.chartSection}>
-            <Text style={styles.sectionTitle}>7-Day Price History</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>7-Day Price History</Text>
             {loading ? (
-              <View style={styles.chartPlaceholder}>
+              <View style={[styles.chartPlaceholder, { backgroundColor: scheme === 'dark' ? '#161618' : '#f5f5f5' }]}>
                 <ActivityIndicator size="large" color="#2E7D32" />
-                <Text style={styles.loadingText}>Fetching history chart...</Text>
+                <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Fetching history chart...</Text>
               </View>
             ) : errorMsg ? (
-              <View style={styles.chartPlaceholder}>
+              <View style={[styles.chartPlaceholder, { backgroundColor: scheme === 'dark' ? '#161618' : '#f5f5f5' }]}>
                 <Text style={styles.errorText}>{errorMsg}</Text>
               </View>
             ) : !hasChartData ? (
-              <View style={styles.chartPlaceholder}>
-                <Text style={styles.noDataText}>Not enough historical data to display trend chart.</Text>
+              <View style={[styles.chartPlaceholder, { backgroundColor: scheme === 'dark' ? '#161618' : '#f5f5f5' }]}>
+                <Text style={[styles.noDataText, { color: colors.textSecondary }]}>Not enough historical data to display trend chart.</Text>
               </View>
             ) : (
               <LineChart
@@ -211,19 +216,19 @@ export default function DetailModal({
                 width={chartWidth}
                 height={200}
                 chartConfig={{
-                  backgroundColor: '#ffffff',
-                  backgroundGradientFrom: '#ffffff',
-                  backgroundGradientTo: '#ffffff',
+                  backgroundColor: scheme === 'dark' ? '#212225' : '#ffffff',
+                  backgroundGradientFrom: scheme === 'dark' ? '#212225' : '#ffffff',
+                  backgroundGradientTo: scheme === 'dark' ? '#212225' : '#ffffff',
                   decimalPlaces: 0,
-                  color: (opacity = 1) => `rgba(46, 125, 50, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(117, 117, 117, ${opacity})`,
+                  color: (opacity = 1) => scheme === 'dark' ? `rgba(129, 199, 132, ${opacity})` : `rgba(46, 125, 50, ${opacity})`,
+                  labelColor: (opacity = 1) => scheme === 'dark' ? `rgba(176, 180, 186, ${opacity})` : `rgba(117, 117, 117, ${opacity})`,
                   style: {
                     borderRadius: 16
                   },
                   propsForDots: {
                     r: '4',
                     strokeWidth: '2',
-                    stroke: '#2E7D32'
+                    stroke: scheme === 'dark' ? '#81c784' : '#2E7D32'
                   }
                 }}
                 bezier
@@ -234,8 +239,8 @@ export default function DetailModal({
 
           {/* Footer Details */}
           <View style={styles.footer}>
-            <Text style={styles.sourceText}>Source: {source}</Text>
-            <Text style={styles.dateText}>As of: {date}</Text>
+            <Text style={[styles.sourceText, { color: colors.textSecondary }]}>Source: {source}</Text>
+            <Text style={[styles.dateText, { color: colors.textSecondary }]}>As of: {date}</Text>
           </View>
 
           {/* Share Button */}
