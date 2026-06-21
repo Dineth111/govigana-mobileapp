@@ -17,7 +17,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 
 # Setup config
 HARTI_METHOD = "pdf"  # "pdf" | "api" | "browser"
-USER_AGENT = "GoviGana-Bot/1.0 (contact: dineth@example.com)"
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 HARTI_LIST_URL = "https://www.harti.gov.lk/daily-price.php"
 
 # Market name mappings
@@ -124,7 +124,12 @@ def parse_price_value(price_str):
     return None
 
 def download_file(url, local_path):
-    headers = {"User-Agent": USER_AGENT}
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive"
+    }
     print(f"Downloading: {url} ...")
     r = requests.get(url, headers=headers, timeout=30)
     r.raise_for_status()
@@ -135,7 +140,12 @@ def download_file(url, local_path):
 def scrape_harti():
     """Scrapes the latest HARTI PDF report and returns a list of parsed price dictionaries."""
     print("--- STARTING HARTI SCRAPE ---")
-    headers = {"User-Agent": USER_AGENT}
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive"
+    }
     
     # 1. Fetch the listing page to find the latest PDF link
     r = requests.get(HARTI_LIST_URL, headers=headers, timeout=15)
