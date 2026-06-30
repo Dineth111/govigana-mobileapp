@@ -147,9 +147,20 @@ def scrape_harti():
         "Connection": "keep-alive"
     }
     
-    # 1. Fetch the listing page to find the latest PDF link
-    r = requests.get(HARTI_LIST_URL, headers=headers, timeout=15)
-    r.raise_for_status()
+    # 1. Fetch the listing page to find the latest PDF link with retries
+    max_retries = 3
+    r = None
+    for attempt in range(max_retries):
+        try:
+            print(f"Fetching listing page (attempt {attempt + 1}/{max_retries})...")
+            r = requests.get(HARTI_LIST_URL, headers=headers, timeout=30)
+            r.raise_for_status()
+            break
+        except requests.exceptions.RequestException as e:
+            if attempt == max_retries - 1:
+                raise
+            print(f"Attempt {attempt + 1} failed: {e}. Retrying in 5 seconds...")
+            time.sleep(5)
     
     soup = BeautifulSoup(r.text, 'html.parser')
     table = soup.find('table')
@@ -188,19 +199,38 @@ def scrape_harti():
     parsed_rows = []
     
     with pdfplumber.open(local_pdf) as pdf:
-        # Page 1 contains the Vegetables & Fruits wholesale prices in English
-        if len(pdf.pages) < 2:
-            raise Exception("HARTI PDF has fewer than 2 pages. Layout might have changed.")
+        target_page = None
+        for page_idx, page in enumerate(pdf.pages):
+            tables = page.extract_tables()
+            if not tables:
+                continue
+            table_data = tables[0]
+            if len(table_data) < 3:
+                continue
             
-        page = pdf.pages[1]
+            headers_row = table_data[1]
+            if not headers_row:
+                continue
+                
+            has_english_markets = False
+            for col in headers_row:
+                if col:
+                    col_clean = col.lower().replace('\n', ' ').strip()
+                    if col_clean in MARKET_MAP:
+                        has_english_markets = True
+                        break
+            if has_english_markets:
+                target_page = page
+                print(f"Found English Daily Price table on page index {page_idx}")
+                break
+                
+        if not target_page:
+            raise Exception("Could not find the English daily price table in any page of the HARTI PDF.")
+            
+        page = target_page
         tables = page.extract_tables()
-        if not tables:
-            raise Exception("No tables found on page 1 of the HARTI PDF.")
-            
         table_data = tables[0]
-        if len(table_data) < 3:
-            raise Exception("Daily price table has too few rows.")
-            
+        
         # Inspect headers from row 1
         headers_row = table_data[1]
         market_cols = {}  # maps market_name -> column_index
