@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import time
+from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
 import pdfplumber
@@ -19,6 +20,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 HARTI_METHOD = "pdf"  # "pdf" | "api" | "browser"
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 HARTI_LIST_URL = "https://www.harti.gov.lk/daily-price.php"
+PDF_HREF_PATTERN = re.compile(r"\.pdf(?:$|\?)", re.IGNORECASE)
 
 # Market name mappings
 MARKET_MAP = {
@@ -137,6 +139,40 @@ def download_file(url, local_path):
         f.write(r.content)
     print(f"File downloaded to {local_path} (Size: {os.path.getsize(local_path)} bytes)")
 
+def extract_date_from_text(text):
+    if not text:
+        return None
+    match = re.search(r"\d{4}-\d{2}-\d{2}", text)
+    if match:
+        return match.group(0)
+    return None
+
+def extract_latest_harti_pdf_info(soup):
+    first_pdf_link = None
+    target_date = None
+
+    table = soup.find('table')
+    if table:
+        for row in table.find_all('tr'):
+            a_tag = row.find('a', href=True)
+            if not a_tag:
+                continue
+            href = a_tag.get('href', '').strip()
+            if PDF_HREF_PATTERN.search(href):
+                first_pdf_link = href
+                target_date = extract_date_from_text(" ".join(row.stripped_strings)) or extract_date_from_text(href)
+                break
+
+    if not first_pdf_link:
+        for a_tag in soup.find_all('a', href=True):
+            href = a_tag.get('href', '').strip()
+            if PDF_HREF_PATTERN.search(href):
+                first_pdf_link = href
+                target_date = extract_date_from_text(" ".join(a_tag.parent.stripped_strings)) or extract_date_from_text(href)
+                break
+
+    return first_pdf_link, target_date
+
 def scrape_harti():
     """Scrapes the latest HARTI PDF report and returns a list of parsed price dictionaries."""
     print("--- STARTING HARTI SCRAPE ---")
@@ -163,30 +199,15 @@ def scrape_harti():
             time.sleep(5)
     
     soup = BeautifulSoup(r.text, 'html.parser')
-    table = soup.find('table')
-    if not table:
-        raise Exception("Could not find daily price table list on HARTI website.")
-        
-    first_pdf_link = None
-    target_date = None
-    
-    # Iterate table rows to find the first PDF link and its date
-    for row in table.find_all('tr')[1:]:  # Skip header row
-        cols = row.find_all('td')
-        if len(cols) >= 3:
-            date_str = cols[0].get_text(strip=True)
-            a_tag = cols[2].find('a')
-            if a_tag and a_tag.get('href') and a_tag.get('href').endswith('.pdf'):
-                first_pdf_link = a_tag.get('href')
-                target_date = date_str
-                break
-                
+    first_pdf_link, target_date = extract_latest_harti_pdf_info(soup)
+
     if not first_pdf_link:
-        raise Exception("No daily price PDF files found in the HARTI price table.")
+        raise Exception("No daily price PDF files found on HARTI listing page.")
+    if not target_date:
+        target_date = time.strftime("%Y-%m-%d")
         
     # Clean and build absolute URL
-    if not first_pdf_link.startswith('http'):
-        first_pdf_link = "https://www.harti.gov.lk/" + first_pdf_link.lstrip('/')
+    first_pdf_link = urljoin(HARTI_LIST_URL, first_pdf_link)
         
     print(f"Latest Daily Price Report Date: {target_date}")
     print(f"PDF Download Link: {first_pdf_link}")
